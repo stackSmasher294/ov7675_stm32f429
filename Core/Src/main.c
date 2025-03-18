@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "clock.h"
 
 /* USER CODE END Includes */
 
@@ -64,6 +65,15 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+PUTCHAR_PROTOTYPE
+{
+  /* Place your implementation of fputc here */
+  /* e.g. write a character to the USART1 and Loop until the end of transmission */
+  HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xFFFF);
+
+  return ch;
+}
 
 void draw_moving_squares(int window_height, int window_width, uint32_t *frameBuffer)
 {
@@ -130,6 +140,7 @@ int main(void)
   BSP_LCD_Init();
   win_height = BSP_LCD_GetYSize();
   win_width = BSP_LCD_GetXSize();
+  init_perf_counter();
 
   /* Initialize the LCD Layers */
   BSP_LCD_LayerDefaultInit(1, LCD_FRAME_BUFFER);

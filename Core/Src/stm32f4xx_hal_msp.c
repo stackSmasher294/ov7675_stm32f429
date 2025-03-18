@@ -200,6 +200,8 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim)
 
   /* USER CODE BEGIN TIM2_MspPostInit 1 */
 
+  HAL_TIM_PWM_Start(htim, TIM_CHANNEL_1);
+
   /* USER CODE END TIM2_MspPostInit 1 */
   }
 

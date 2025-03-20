@@ -22,7 +22,7 @@ TARGET = ov7675
 # debug build?
 DEBUG = 1
 # optimization
-OPT = -Og
+OPT = -O3
 
 #######################################
 # OpenOCD settings
@@ -74,6 +74,7 @@ Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery.c \
 Drivers/BSP/STM32F429I-Discovery/stm32f429i_discovery_lcd.c \
 Drivers/BSP/STM32F429I-Discovery/stm32f429i_discovery_sdram.c \
 Drivers/BSP/STM32F429I-Discovery/stm32f429i_discovery_ts.c \
+Drivers/OV7675/ov7675.c \
 Core/Src/system_stm32f4xx.c \
 Core/Src/sysmem.c \
 Core/Src/syscalls.c
@@ -143,6 +144,7 @@ C_INCLUDES =  \
 -IDrivers/CMSIS/Include \
 -IDrivers/STM32F4xx_HAL_Driver/Inc \
 -IDrivers/STM32F4xx_HAL_Driver/Inc/Legacy \
+-IDrivers/OV7675 \
 -IDrivers/Utilities/Log 
 
 

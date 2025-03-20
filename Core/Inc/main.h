@@ -270,9 +270,12 @@ void Error_Handler(void);
 #define NBL0_GPIO_Port GPIOE
 #define NBL1_Pin GPIO_PIN_1
 #define NBL1_GPIO_Port GPIOE
+#define PEN_Pin GPIO_PIN_8
+#define PDN_Pin GPIO_PIN_11 
+#define PEN_PDN_GPIO_Port GPIOC
 
 /* USER CODE BEGIN Private defines */
-
+extern I2C_HandleTypeDef hi2c3;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "clock.h"
+#include "ov7675.h"
 
 /* USER CODE END Includes */
 
@@ -148,6 +149,8 @@ int main(void)
   BSP_LCD_SetFont(&Font16);
   BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
 
+  ov7675_init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -258,7 +261,7 @@ static void MX_I2C3_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN I2C3_Init 2 */
-
+  HAL_I2C_MspInit(&hi2c3);
   /* USER CODE END I2C3_Init 2 */
 
 }
@@ -285,7 +288,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 90; // 1 MHz at 90 MHz input
+  htim2.Init.Period = 4; // 4 = 22.5 MHz at 90 MHz input
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -308,7 +311,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 45;
+  sConfigOC.Pulse = 2;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -601,6 +604,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   GPIO_InitStruct.Alternate = GPIO_AF12_FMC;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* COnfigure PEN and PDN pins */
+  GPIO_InitStruct.Pin = PEN_Pin|PDN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(PEN_PDN_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

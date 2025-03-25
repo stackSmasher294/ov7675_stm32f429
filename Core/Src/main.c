@@ -128,6 +128,17 @@ void draw_moving_squares(int window_height, int window_width, uint32_t *frameBuf
   offset++;
 }
 
+void resize_by_2(int16_t *in, int16_t *out, const int inrows, const int incols)
+{
+    const int nlen = inrows * incols;
+    int write_idx = 0;
+
+    for (int i = 0; i < nlen; i+=2)
+    {
+        out[write_idx++] = in[i];
+    }
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -177,10 +188,9 @@ int main(void)
   BSP_LCD_SelectLayer(1);
   BSP_LCD_SetFont(&Font16);
   BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
-  BSP_LCD_Clear(LCD_COLOR_BLACK);
+  BSP_LCD_Clear(0x0);
 
   ov7675_init();
-  uint8_t dummy[10];
 
   /* USER CODE END 2 */
 
@@ -194,6 +204,7 @@ int main(void)
     // draw_moving_squares(win_height, win_width, LCD_FRAME_BUFFER);
     // draw_moving_squares_rgb565(win_height, win_width, LCD_FRAME_BUFFER);
     ov7675_grab_frame(g_cam_fb);
+    // resize_by_2(CAMERA_FRAME_BUFFER, LCD_FRAME_BUFFER, 640, 480);
   }
   /* USER CODE END 3 */
 }
@@ -308,7 +319,7 @@ static void MX_TIM2_Init(void)
 {
 
   /* USER CODE BEGIN TIM2_Init 0 */
-  const float xclk_freq = 16e6;
+  const float xclk_freq = 24e6;
   uint32_t period_val = (int) (90e6 / xclk_freq);
   /* USER CODE END TIM2_Init 0 */
 

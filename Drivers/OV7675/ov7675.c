@@ -431,7 +431,6 @@ int ov7675_set_test_pattern(int onoff)
 
 
 
-
 int ov7675_init()
 {
     // SH1106_init();
@@ -470,9 +469,11 @@ int ov7675_init()
     ov7675_write_array(ov7670_fmt_rgb565);
     printf("Done\n");
 
-    ov7675_write_reg(REG_CLKRC, 0x3F); // internal clock = xclk / (CLKRC[5:0] + 1)
-    ov7675_write_reg(REG_COM14, 0x10); // plclk / COM14[2:0]
-    ov7675_write_reg(REG_DBLV, DBLV_BYPASS);
+    ov7675_write_reg(REG_DBLV, DBLV_X6);
+    ov7675_write_reg(REG_CLKRC, 0x0b); // internal clock = xclk / (CLKRC[5:0] + 1)
+    ov7675_write_reg(REG_COM14, 0x11); // plclk / COM14[2:0]
+    // ov7675_write_reg(REG_CLKRC, 0x00); // internal clock = xclk / (CLKRC[5:0] + 1)
+    // ov7675_write_reg(REG_COM14, 0x00); // plclk / COM14[2:0]
 
     val = ov7675_read_reg(REG_CLKRC); 
     printf("CLKRC: 0x%02x\r\n", val);
@@ -490,7 +491,9 @@ int ov7675_init()
     // val = val | (1 << 4); // COM7[4] = 1 for QVGA output
     // ov7675_write_reg(REG_COM7, val);
     
-    ov7675_set_test_pattern(1);
+    ov7675_set_test_pattern(0);
+
+    ov7675_write_reg(REG_PSHFT, 0);
     
     ov7675_set_window(7, 647, 14, 494); // 640 x 480
     // ov7675_set_window(68, 388, 132, 372); // 320 x 240
@@ -546,91 +549,64 @@ int ov7675_grab_frame(uint16_t* frame)
     int done = 0;
     int irow, icol;
 
-    int count_hsync = 0;
-    int count_pixbytes = 0;
-    int write_offset = 0;
     uint16_t pixel;
     uint8_t *bytes = (uint8_t*) &pixel;
 
     const int nrows = 480;
     const int ncols = 640;
-    const int cam_nrows = ncols / 2; // 320
-    const int cam_ncols = nrows / 2; // 240
+    const int lcd_nrows = ncols / 2; // 320
+    const int lcd_ncols = nrows / 2; // 240
 
-    // enum state_e 
-    // {
-    //     STATE_WAIT_HIGH,
-    //     STATE_HIGH,
-    //     STATE_WAIT_LOW,
-    //     STATE_LOW
-    // }state_e;
 
-    // enum state_e vsync_state = STATE_WAIT_HIGH;
+    // 1. wait for vsync to go high
+    while(!(GPIOD->IDR & CAM_VSYNC_Pin));
 
-    while (!done)
+    // 2. wait for vsync to go low
+    while((GPIOD->IDR & CAM_VSYNC_Pin));
+    for (irow = 0; irow < nrows; irow++)
     {
-        // 1. wait for vsync to go high
-        while(!(GPIOD->IDR & CAM_VSYNC_Pin));
-        // printf("vs1\n");
+        // 3. wait for hsync to go high
+        while(!(GPIOD->IDR & CAM_HSYNC_Pin));
 
-        // 2. wait for vsync to go low
-        while((GPIOD->IDR & CAM_VSYNC_Pin));
-        // printf("vs0\n");
-        count_hsync = 0;
-        for (irow = 0; irow < nrows; irow++)
+        // 4. read data pins on positive edge of pclk 2 * width times.
+        for (icol = 0; icol < ncols; icol++)
         {
-            // printf("hs0\n");
-            // 3. wait for hsync to go high
-            while(!(GPIOD->IDR & CAM_HSYNC_Pin));
-
-            // 4. read data pins on positive edge of pclk 2 * width times.
-            count_pixbytes = 0;
-            for (icol = 0; icol < ncols; icol++)
-            {
-                
-                // wait for pclk to be high
-                while(!(PCLK_GPIO_Port->IDR & PCLK_Pin));
-                // sample the parallel data
-
-                /**
-                 * DATA[4:0] = GPIOE->IDR[6:2]
-                 * DATA[6:5] = GPIOB->IDR[4:3]
-                 * DATA[7] = GPIOB->IDR[7] 
-                 */
-                bytes[1] = (GPIOE->IDR >> 2) & 0x1f;
-                bytes[1] |= ((GPIOB->IDR >> 3) & 0x03) << 5;
-                bytes[1] |= (GPIOB->IDR & 0x80); 
-
-                // wait for pclk to be low
-                while((PCLK_GPIO_Port->IDR & PCLK_Pin));
-
-                // Sample the 2nd byte
-
-                // wait for pclk to be high
-                while(!(PCLK_GPIO_Port->IDR & PCLK_Pin));
-                bytes[0] = (GPIOE->IDR >> 2) & 0x1f;
-                bytes[0] |= ((GPIOB->IDR >> 3) & 0x03) << 5;
-                bytes[0] |= (GPIOB->IDR & 0x80);
-                while((PCLK_GPIO_Port->IDR & PCLK_Pin));
-
-                frame[(icol >> 1) * cam_nrows + (irow >> 1)] = pixel;
-
-                // count_pixbytes++;
-                // printf("count %d\n", count_pixbytes);
-            }
-            // printf("cols: %d\n", count_pixbytes);
-
-
             
-            // 5. wait for hsync to go low
-            while((GPIOD->IDR & CAM_HSYNC_Pin));
-            // printf("hs1\n");
-            count_hsync++;
+            // wait for pclk to be high
+            while(!(PCLK_GPIO_Port->IDR & PCLK_Pin));
+            // sample the parallel data
+
+            /**
+             * DATA[4:0] = GPIOE->IDR[6:2]
+             * DATA[6:5] = GPIOB->IDR[4:3]
+             * DATA[7] = GPIOB->IDR[7] 
+             */
+            bytes[0] = (GPIOE->IDR >> 2) & 0x1f;
+            bytes[0] |= (GPIOB->IDR << 2) & 0x60;
+            bytes[0] |= (GPIOB->IDR & 0x80); 
+
+            // wait for pclk to be low
+            while((PCLK_GPIO_Port->IDR & PCLK_Pin));
+
+            // Sample the 2nd byte
+
+            // wait for pclk to be high
+            while(!(PCLK_GPIO_Port->IDR & PCLK_Pin));
+            bytes[1] = (GPIOE->IDR >> 2) & 0x1f;
+            bytes[1] |= (GPIOB->IDR << 2) & 0x60;
+            bytes[1] |= (GPIOB->IDR & 0x80);
+            // bytes[0] = 0;
+            while((PCLK_GPIO_Port->IDR & PCLK_Pin));
+
+            frame[(icol) * 240 + (irow)] = pixel;
 
         }
 
-        // printf("# hsync:%d\n", count_hsync);
-        done = 1;
+
+        
+        // 5. wait for hsync to go low
+        while((GPIOD->IDR & CAM_HSYNC_Pin));
+
     }
 
 }

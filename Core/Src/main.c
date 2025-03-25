@@ -196,6 +196,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t tick_start, tick_stop;
   while (1)
   {
     /* USER CODE END WHILE */
@@ -203,7 +204,11 @@ int main(void)
     /* USER CODE BEGIN 3 */
     // draw_moving_squares(win_height, win_width, LCD_FRAME_BUFFER);
     // draw_moving_squares_rgb565(win_height, win_width, LCD_FRAME_BUFFER);
+    tick_start = clock_begin();
+    GPIOG->ODR ^= LD4_Pin;
     ov7675_grab_frame(g_cam_fb);
+    tick_stop = clock_end();
+    printf("Elapsed: %f s\n", (tick_stop - tick_start)/160e6);
     // resize_by_2(CAMERA_FRAME_BUFFER, LCD_FRAME_BUFFER, 640, 480);
   }
   /* USER CODE END 3 */
@@ -319,7 +324,7 @@ static void MX_TIM2_Init(void)
 {
 
   /* USER CODE BEGIN TIM2_Init 0 */
-  const float xclk_freq = 24e6;
+  const float xclk_freq = 6e6;
   uint32_t period_val = (int) (90e6 / xclk_freq);
   /* USER CODE END TIM2_Init 0 */
 

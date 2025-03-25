@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define CAMERA_FRAME_BUFFER ((uint16_t*)0xD00F0000)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -49,6 +49,9 @@ TIM_HandleTypeDef htim2;
 UART_HandleTypeDef huart1;
 
 DMA2D_HandleTypeDef hdma2d;
+
+// uint16_t* g_cam_fb = CAMERA_FRAME_BUFFER;
+uint16_t* g_cam_fb = LCD_FRAME_BUFFER;
 
 /* USER CODE BEGIN PV */
 
@@ -76,6 +79,31 @@ PUTCHAR_PROTOTYPE
   return ch;
 }
 
+void draw_moving_squares_rgb565(int window_height, int window_width, uint16_t *frameBuffer)
+{
+    static int offset = 0;
+    uint16_t rgb = 0;
+    uint8_t* p_rgb = (uint8_t*)&rgb;
+    uint8_t a = 255,r,g,b;
+    for (int y = 0; y < window_height; y++)
+    {
+        for (int x = 0; x < window_width; x++)
+        {
+          r = ((x + offset) % 128) >> 3; // 5 bit max
+          g = ((y + offset) % 128) >> 2; // 6 bit max
+          b = 128 >> 3; // 5 bit max
+         
+          // p_rbg[1][7:3] = 5 bit red , p_argb[1][2:0] = 3 bit green msb
+          p_rgb[1] = (r << 3) | ( (g >> 3) & 0x7 );
+          // p_argb[0][7:4] = 3 bit green lsb, p_argb[0][4:0] = 5 bit blue
+          p_rgb[0] = (g & 0x7) << 4 | b;
+          frameBuffer[y * window_width + x] = rgb;
+        }
+    }
+    
+  offset++;
+}
+
 void draw_moving_squares(int window_height, int window_width, uint32_t *frameBuffer)
 {
     static int offset = 0;
@@ -90,9 +118,9 @@ void draw_moving_squares(int window_height, int window_width, uint32_t *frameBuf
           r = (x + offset) % 128;
           g = (y + offset) % 128;
           b = 128;
-          p_argb[0] = r;
+          p_argb[0] = b;
           p_argb[1] = g;
-          p_argb[2] = b;
+          p_argb[2] = r;
           p_argb[3] = a;
           frameBuffer[y * window_width + x] = argb;
         }
@@ -139,8 +167,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   BSP_LCD_Init();
-  win_height = BSP_LCD_GetYSize();
-  win_width = BSP_LCD_GetXSize();
+  win_height = BSP_LCD_GetYSize(); // 320
+  win_width = BSP_LCD_GetXSize(); // 240
+  printf("lcd height %d, lcd width %d\n", win_height, win_width);
   init_perf_counter();
 
   /* Initialize the LCD Layers */
@@ -148,8 +177,10 @@ int main(void)
   BSP_LCD_SelectLayer(1);
   BSP_LCD_SetFont(&Font16);
   BSP_LCD_SetTextColor(LCD_COLOR_WHITE);
+  BSP_LCD_Clear(LCD_COLOR_BLACK);
 
   ov7675_init();
+  uint8_t dummy[10];
 
   /* USER CODE END 2 */
 
@@ -160,7 +191,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    draw_moving_squares(win_height, win_width, LCD_FRAME_BUFFER);
+    // draw_moving_squares(win_height, win_width, LCD_FRAME_BUFFER);
+    // draw_moving_squares_rgb565(win_height, win_width, LCD_FRAME_BUFFER);
+    ov7675_grab_frame(g_cam_fb);
   }
   /* USER CODE END 3 */
 }
@@ -275,7 +308,8 @@ static void MX_TIM2_Init(void)
 {
 
   /* USER CODE BEGIN TIM2_Init 0 */
-
+  const float xclk_freq = 16e6;
+  uint32_t period_val = (int) (90e6 / xclk_freq);
   /* USER CODE END TIM2_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
@@ -288,7 +322,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4; // 4 = 22.5 MHz at 90 MHz input
+  htim2.Init.Period = period_val; // 4 = 22.5 MHz at 90 MHz input
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -311,7 +345,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 2;
+  sConfigOC.Pulse = period_val / 2;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_OC_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)

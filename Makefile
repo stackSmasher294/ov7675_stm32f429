@@ -68,6 +68,7 @@ Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_sdram.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_ltdc.c \
+Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma2d.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_fmc.c \
 Drivers/BSP/Components/ili9341/ili9341.c \
 Drivers\BSP\STM32F429I-Discovery\stm32f429i_discovery.c \

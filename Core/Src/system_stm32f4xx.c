@@ -140,6 +140,9 @@ const uint8_t APBPrescTable[8]  = {0, 0, 0, 0, 1, 2, 3, 4};
 /**
   * @}
   */
+extern unsigned int _siramcode;
+extern unsigned int _sramcode;
+extern unsigned int _eramcode;
 
 /** @addtogroup STM32F4xx_System_Private_FunctionPrototypes
   * @{
@@ -179,6 +182,17 @@ void SystemInit(void)
 #if defined(USER_VECT_TAB_ADDRESS)
   SCB->VTOR = VECT_TAB_BASE_ADDRESS | VECT_TAB_OFFSET; /* Vector Table Relocation in Internal SRAM */
 #endif /* USER_VECT_TAB_ADDRESS */
+}
+
+__attribute__((used)) 
+void copy_ramcode(void)
+{
+    unsigned int* src_ramcode_ptr = &_siramcode;
+    unsigned int* dst_ramcode_ptr = &_sramcode;
+    while (dst_ramcode_ptr < &_eramcode)
+    {
+        *dst_ramcode_ptr++ = *src_ramcode_ptr++;
+    }
 }
 
 /**

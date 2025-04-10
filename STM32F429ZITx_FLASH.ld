@@ -146,6 +146,17 @@ SECTIONS
     _edata = .;        /* define a global symbol at data end */
   } >RAM AT> FLASH
 
+   _siramcode = LOADADDR(.ramcode);
+  .ramcode :
+  {
+    . = ALIGN (4);
+    _sramcode = .;
+    *(.ramcode)
+    *(.ramcode*)
+    . = ALIGN (4);
+    _eramcode = .;
+  } > RAM AT > FLASH
+
   _siccmram = LOADADDR(.ccmram);
 
   /* CCM-RAM section 

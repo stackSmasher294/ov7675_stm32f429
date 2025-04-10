@@ -1,6 +1,7 @@
 #include "ov7675.h"
 #include "main.h"
 #include "stm32f4xx_hal_i2c.h"
+#include "clock.h"
 
 #define OV7675_I2C_ADDR 0x21
 
@@ -149,6 +150,7 @@
 #define REG_HAECC7 0xaa  /* Hist AEC/AGC control 7 */
 #define REG_BD60MAX 0xab /* 60hz banding step limit */
 
+
 struct regval_list {
 	uint8_t reg_num;
 	uint8_t value;
@@ -161,24 +163,25 @@ static struct regval_list ov7670_default_regs[] = {
  *              2 = 20fps
  *              1 = 30fps
  */
-	{ REG_CLKRC, 0x1f },	/* OV: clock scale */
-	{ REG_TSLB,  0x04 },	/* OV */
-	{ REG_COM7, 0 },	/* VGA */
+	{ REG_CLKRC, 0x1 },	/* OV: clock scale */
+	{ REG_TSLB,  0x0D },	/* OV */
+	{ REG_COM7, COM7_FMT_QVGA },	/* VGA */
 	/*
 	 * Set the hardware window.  These values from OV don't entirely
 	 * make sense - hstop is less than hstart.  But they work...
 	 */
 	{ REG_HSTART, 0x13 },	{ REG_HSTOP, 0x01 },
-	{ REG_HREF, 0xb6 },	{ REG_VSTART, 0x02 },
-	{ REG_VSTOP, 0x7a },	{ REG_VREF, 0x0a },
+	{ REG_HREF, 0xb6 },	{ REG_VSTART, 0x21 },
+	{ REG_VSTOP, 0x5d },	{ REG_VREF, 0x00 },
 
 	{ REG_COM3, 0 },	
+    {REG_COM2, 0x3}, // 4x drive
     { REG_COM14, 0x20 }, // pclk divided by 16
 	/* Mystery scaling numbers */
 	{ REG_SCALING_XSC, 0x3a },
 	{ REG_SCALING_YSC, 0x35 },
 	{ 0x72, 0x11 },		{ 0x73, 0xf0 },
-	{ 0xa2, 0x02 },		{ REG_COM10, 0x0 },
+	{ 0xa2, 0x02 },		{ REG_COM10,  COM10_PCLK_HB },
 
 	/* Gamma curve values */
 	{ 0x7a, 0x20 },		{ 0x7b, 0x10 },
@@ -276,6 +279,7 @@ static struct regval_list ov7670_default_regs[] = {
 static struct regval_list ov7670_fmt_yuv422[] = {
 	{ REG_COM7, 0x0 },  /* Selects YUV mode */
 	{ REG_RGB444, 0 },	/* No RGB444 please */
+    {REG_TSLB, 0x01},
 	{ REG_COM1, 0 },	/* CCIR601 */
 	{ REG_COM15, COM15_R00FF },
 	{ REG_COM9, 0x48 }, /* 32x gain ceiling; 0x8 is reserved bit */
@@ -305,6 +309,8 @@ static struct regval_list ov7670_fmt_rgb565[] = {
 	{ 0xff, 0xff },
 };
 
+__attribute__((section(".ccmram"))) uint16_t scratch_buffer[640];
+// uint16_t scratch_buffer[640];
 
 
 static uint8_t ov7675_read_reg(uint8_t addr)
@@ -355,6 +361,10 @@ static int ov7675_write_array(struct regval_list *vals)
     uint8_t reg_val;
 	while (vals->reg_num != 0xff || vals->value != 0xff) {
 		int ret = ov7675_write_reg(vals->reg_num, vals->value);
+        if ( (vals->reg_num == REG_COM7) && (vals->value & COM7_RESET) )
+        {
+            HAL_Delay(10);
+        } 
         // reg_val = ov7675_read_reg(vals->reg_num);
         // printf("0x%02x = 0x%02x", vals->reg_num, reg_val);
         // if (reg_val != vals->value)
@@ -375,6 +385,7 @@ static int ov7675_write_array(struct regval_list *vals)
 
 int ov7675_set_window(uint16_t hstart, uint16_t hstop, uint16_t vstart, uint16_t vstop)
 {
+    printf("requested settings: hstart: %d, hstop: %d, vstart: %d, vstop: %d\n", hstart, hstop, vstart, vstop);
     // Horizontal frame start {HSTART[7:0], HREF[2:0]}
     // Horizontal frame end {HSTOP[7:0], HREF[5:3]}
     // Vertical frame start {VSTART[7:0], VREF[1:0]}
@@ -393,8 +404,11 @@ int ov7675_set_window(uint16_t hstart, uint16_t hstop, uint16_t vstart, uint16_t
     reg_href = ((hstop & 0x3) << 3) | (hstart & 0x3);
     
     reg_tmp = ov7675_read_reg(REG_HREF);
+    printf("writing HSTART: 0x%02x\n", reg_hstart);
     ov7675_write_reg(REG_HSTART, reg_hstart);
+    printf("writing HSTOP: 0x%02x\n", reg_hstop);
     ov7675_write_reg(REG_HSTOP, reg_hstop);
+    printf("writing HREF: 0x%02x\n", reg_tmp | reg_href);
     ov7675_write_reg(REG_HREF, reg_tmp | reg_href);
 
     // Vertical bounds
@@ -403,10 +417,13 @@ int ov7675_set_window(uint16_t hstart, uint16_t hstop, uint16_t vstart, uint16_t
     reg_vref = ((vstop & 0x3) << 2) | (vstart & 0x3);
     
     reg_tmp = ov7675_read_reg(REG_VREF);
+    printf("writing VSTART: 0x%02x\n", reg_vstart);
     ov7675_write_reg(REG_VSTART, reg_vstart);
     printf("writing VSTOP: 0x%02x\n", reg_vstop);
     ov7675_write_reg(REG_VSTOP, reg_vstop);
+    printf("writing VREF: 0x%02x\n", reg_tmp | reg_vref);
     ov7675_write_reg(REG_VREF, reg_tmp | reg_vref);
+    printf("===========================\n");
 
     return ret;
 }
@@ -469,8 +486,14 @@ int ov7675_init()
     ov7675_write_array(ov7670_fmt_rgb565);
     printf("Done\n");
 
+
+    // ov7675_set_window(7, 647, 14, 494); // 640 x 480
+    // ov7675_set_window(68, 388, 132, 372); // 320 x 240
+    ov7675_set_window(68, 388, 14, 494); // 
+    HAL_Delay(10);
+
     ov7675_write_reg(REG_DBLV, DBLV_X6);
-    ov7675_write_reg(REG_CLKRC, 0x0b); // internal clock = xclk / (CLKRC[5:0] + 1)
+    ov7675_write_reg(REG_CLKRC, 0x03); // internal clock = xclk / (CLKRC[5:0] + 1)
     ov7675_write_reg(REG_COM14, 0x11); // plclk / COM14[2:0]
     // ov7675_write_reg(REG_CLKRC, 0x00); // internal clock = xclk / (CLKRC[5:0] + 1)
     // ov7675_write_reg(REG_COM14, 0x00); // plclk / COM14[2:0]
@@ -484,6 +507,9 @@ int ov7675_init()
     val = ov7675_read_reg(REG_DBLV); 
     printf("DBLV: 0x%02x\r\n", val);
 
+    val = ov7675_read_reg(REG_TSLB); 
+    printf("TSLB: 0x%02x\r\n", val);
+
 
     // Set the format
     // val = ov7675_read_reg(REG_COM7);
@@ -494,10 +520,7 @@ int ov7675_init()
     ov7675_set_test_pattern(0);
 
     ov7675_write_reg(REG_PSHFT, 0);
-    
-    ov7675_set_window(7, 647, 14, 494); // 640 x 480
-    // ov7675_set_window(68, 388, 132, 372); // 320 x 240
-    HAL_Delay(10);
+
     
 
 
@@ -552,10 +575,8 @@ int ov7675_grab_frame(uint16_t* frame)
     uint16_t pixel;
     uint8_t *bytes = (uint8_t*) &pixel;
 
-    const int nrows = 480;
-    const int ncols = 640;
-    const int lcd_nrows = ncols / 2; // 320
-    const int lcd_ncols = nrows / 2; // 240
+    uint32_t tick_start, tick_stop;
+    uint32_t write_ptr = 0;
 
 
     // 1. wait for vsync to go high
@@ -563,13 +584,15 @@ int ov7675_grab_frame(uint16_t* frame)
 
     // 2. wait for vsync to go low
     while((GPIOD->IDR & CAM_VSYNC_Pin));
-    for (irow = 0; irow < nrows; irow++)
+    for (irow = 0; irow < 480; irow++)
     {
         // 3. wait for hsync to go high
         while(!(GPIOD->IDR & CAM_HSYNC_Pin));
+        GPIOG->ODR |= GPIO_PIN_13;
 
         // 4. read data pins on positive edge of pclk 2 * width times.
-        for (icol = 0; icol < ncols; icol++)
+        write_ptr = 0;
+        for (icol = 0; icol < 320; icol++)
         {
             
             // wait for pclk to be high
@@ -595,17 +618,21 @@ int ov7675_grab_frame(uint16_t* frame)
             bytes[1] = (GPIOE->IDR >> 2) & 0x1f;
             bytes[1] |= (GPIOB->IDR << 2) & 0x60;
             bytes[1] |= (GPIOB->IDR & 0x80);
-            // bytes[0] = 0;
             while((PCLK_GPIO_Port->IDR & PCLK_Pin));
-
-            frame[(icol) * 240 + (irow)] = pixel;
-
+            
+            scratch_buffer[write_ptr++] = pixel;
+            
         }
-
-
         
         // 5. wait for hsync to go low
         while((GPIOD->IDR & CAM_HSYNC_Pin));
+
+        GPIOG->ODR &= ~GPIO_PIN_13;
+        for (int i = 0; i < 320; i++)
+        {
+            frame[(irow >> 1) + (240 * i)] = scratch_buffer[i];
+        }
+
 
     }
 

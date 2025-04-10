@@ -197,20 +197,22 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   uint32_t tick_start, tick_stop;
+  printf("RCC->AHB1ENR 0x%08x\n", RCC->AHB1ENR);
   while (1)
   {
-    /* USER CODE END WHILE */
+      /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
-    // draw_moving_squares(win_height, win_width, LCD_FRAME_BUFFER);
-    // draw_moving_squares_rgb565(win_height, win_width, LCD_FRAME_BUFFER);
-    tick_start = clock_begin();
-    GPIOG->ODR ^= LD4_Pin;
-    ov7675_grab_frame(g_cam_fb);
-    tick_stop = clock_end();
-    printf("Elapsed: %f s\n", (tick_stop - tick_start)/160e6);
-    // resize_by_2(CAMERA_FRAME_BUFFER, LCD_FRAME_BUFFER, 640, 480);
+      /* USER CODE BEGIN 3 */
+      // draw_moving_squares(win_height, win_width, LCD_FRAME_BUFFER);
+      // draw_moving_squares_rgb565(win_height, win_width, LCD_FRAME_BUFFER);
+      tick_start = clock_begin();
+      GPIOG->ODR ^= LD4_Pin;
+      ov7675_grab_frame(g_cam_fb);
+      tick_stop = clock_end();
+      // resize_by_2(CAMERA_FRAME_BUFFER, LCD_FRAME_BUFFER, 640, 480);
+      // printf("Elapsed: %f s\n", (tick_stop - tick_start)/160e6);
   }
+
   /* USER CODE END 3 */
 }
 
@@ -265,6 +267,8 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
+  RCC->AHB1ENR |= (1 << 20); // enable ccm clock
 }
 
 /**
